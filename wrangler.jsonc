@@ -1,0 +1,7 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "stl-scolaire-laval",
+  "compatibility_date": "2026-09-03",
+  "pages_build_output_dir": "./dist/cloudflare/browser",
+  "send_metrics": false
+}

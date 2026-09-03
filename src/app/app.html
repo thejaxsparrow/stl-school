@@ -1,0 +1,223 @@
+<div class="app-shell">
+  <header class="topbar">
+    <a class="brand" href="#main" aria-label="STL Scolaire, accueil">
+      <span class="brand-mark" aria-hidden="true"><span class="brand-line"></span><span class="brand-bus"></span></span>
+      <span class="brand-copy"><strong>STL</strong><small>Scolaire</small></span>
+    </a>
+    <a class="documents-shortcut" href="#documents"><svg lucideFileText aria-hidden="true"></svg><span>Les PDF</span></a>
+    <span class="school-year">2026–2027</span>
+  </header>
+
+  <main id="main">
+    <section class="intro" aria-labelledby="page-title">
+      <p class="eyebrow"><span></span> Ton trajet, simplement</p>
+      <h1 id="page-title">Quel autobus<br><em>prendre après l’école?</em></h1>
+      <p class="intro-copy">Choisis ton école, écris ton adresse à Laval et découvre les lignes qui passent le plus près de chez toi.</p>
+    </section>
+
+    <form class="finder-card" (ngSubmit)="search()" aria-label="Rechercher un autobus scolaire">
+      <div class="step-field">
+        <span class="step-number"><svg lucideSchool aria-hidden="true"></svg></span>
+        <div class="field-body select-wrap">
+          <label for="school">Mon école</label>
+          <select id="school" name="school" [(ngModel)]="schoolSlug" (ngModelChange)="results = []; error = ''; hasSearched = false">
+            @for (school of schools; track school.slug) {
+              <option [value]="school.slug">{{ school.name }}</option>
+            }
+          </select>
+          <svg lucideChevronDown aria-hidden="true"></svg>
+        </div>
+      </div>
+
+      <div class="field-divider"></div>
+
+      <div class="step-field address-field">
+        <span class="step-number"><svg lucideMapPin aria-hidden="true"></svg></span>
+        <div class="field-body">
+          <label for="address">Mon adresse à Laval</label>
+          <input
+            id="address"
+            name="address"
+            [(ngModel)]="address"
+            (ngModelChange)="onAddressInput($event)"
+            (focus)="openAddressSuggestions()"
+            (blur)="closeAddressSuggestionsSoon()"
+            (keydown.escape)="closeAddressSuggestions()"
+            type="search"
+            placeholder="Ex. 363 rue Cay…"
+            autocomplete="off"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-controls="address-suggestions"
+            [attr.aria-expanded]="showSuggestions && (isSuggesting || suggestions.length > 0)"
+          >
+          @if (showSuggestions && (isSuggesting || suggestions.length)) {
+            <div id="address-suggestions" class="address-suggestions" role="listbox" aria-label="Adresses suggérées à Laval">
+              @if (isSuggesting) {
+                <div class="suggestion-loading" aria-live="polite">
+                  <svg lucideLoaderCircle class="spin" aria-hidden="true"></svg>
+                  <span>Je cherche à Laval…</span>
+                </div>
+              }
+              @for (suggestion of suggestions; track suggestion.magicKey) {
+                <button type="button" class="suggestion-option" role="option" (click)="selectAddressSuggestion(suggestion)">
+                  <span class="suggestion-icon"><svg lucideMapPin aria-hidden="true"></svg></span>
+                  <span class="suggestion-copy">
+                    <strong>{{ suggestion.primary }}</strong>
+                    <small>{{ suggestion.secondary }}</small>
+                  </span>
+                  <span class="laval-only">Laval</span>
+                </button>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <button class="find-button" type="submit" [disabled]="isSearching">
+        <span>{{ isSearching ? 'Je cherche…' : 'Trouver mon autobus' }}</span>
+        <span class="button-arrow" [class.is-loading]="isSearching" aria-hidden="true">
+          @if (isSearching) {
+            <svg lucideLoaderCircle class="spin"></svg>
+          } @else {
+            <svg lucideArrowRight></svg>
+          }
+        </span>
+      </button>
+      <p class="privacy-note">Suggestions à Laval seulement. L’adresse sert au calcul et n’est pas enregistrée.</p>
+    </form>
+
+    <div class="examples" aria-label="Exemples de recherche">
+      <span>Essayer :</span>
+      <button type="button" (click)="useExample('college-laval', '1163 place d’Aiguillon')">Collège Laval</button>
+      <button type="button" (click)="useExample('college-letendre', '363 rue Cayer')">Collège Letendre</button>
+    </div>
+
+    <div class="status-region" aria-live="polite">
+      @if (error) {
+        <div class="error-card" role="alert">
+          <svg lucideCircleAlert aria-hidden="true"></svg>
+          <div><strong>On n’a pas trouvé</strong><span>{{ error }}</span></div>
+        </div>
+      }
+    </div>
+
+    @if (results.length) {
+      <section class="results-section" aria-labelledby="results-title">
+        <div class="section-heading result-heading">
+          <div>
+            <p class="section-kicker">Résultat pour {{ selectedSchool.name }}</p>
+            <h2 id="results-title">Voici ton meilleur choix</h2>
+            <p class="matched-address"><svg lucideMapPin aria-hidden="true"></svg>{{ resultAddress }}</p>
+          </div>
+          <span class="result-count">{{ results.length }} {{ results.length === 1 ? 'ligne trouvée' : 'lignes trouvées' }}</span>
+        </div>
+
+        <div class="result-grid">
+          @for (result of results; track result.line; let index = $index) {
+            <article class="route-card" [class.primary]="index === 0">
+              <div class="route-card-top">
+                <span class="rank">{{ index === 0 ? 'Le plus près' : 'Aussi tout près' }}</span>
+                <span class="distance"><svg lucideFootprints aria-hidden="true"></svg>{{ distanceLabel(result.distanceMeters) }}</span>
+              </div>
+              <div class="route-main">
+                <div class="route-badge"><svg lucideBusFront aria-hidden="true"></svg><strong>{{ result.line.slice(0, -1) }}</strong><span>{{ result.line.slice(-1).toLowerCase() }}</span></div>
+                <div class="route-instruction">
+                  <small>Après l’école, prends la ligne</small>
+                  <strong>{{ result.line }}</strong>
+                </div>
+              </div>
+              <div class="court-placement">
+                <span class="placement-pin">P</span>
+                <div class="placement-copy">
+                  <small>Où l’attendre dans la cour</small>
+                  @if (result.placements.length) {
+                    <div class="placement-answer">
+                      <span>{{ result.placements.length === 1 ? 'Emplacement' : 'Emplacements' }}</span>
+                      <strong>{{ result.placements.join(' · ') }}</strong>
+                    </div>
+                  } @else {
+                    <strong class="placement-hint">{{ placementLabel(result) }}</strong>
+                  }
+                </div>
+              </div>
+              <div class="route-actions">
+                <a [href]="routePdf(result.line)" target="_blank" rel="noopener"><svg lucideFileText aria-hidden="true"></svg>Voir le trajet PDF</a>
+                <a [href]="selectedSchool.courtPdf" target="_blank" rel="noopener"><svg lucideExternalLink aria-hidden="true"></svg>Plan de la cour</a>
+              </div>
+            </article>
+          }
+        </div>
+
+        <div class="advice-note">
+          <svg lucideCircleAlert aria-hidden="true"></svg>
+          <p><strong>Petit rappel</strong> Marche jusqu’à une intersection principale ou un arrêt STL situé sur le tracé. Vérifie toujours le PDF avant ton premier trajet.</p>
+        </div>
+
+        <section class="map-card" aria-labelledby="map-title">
+          <div class="map-heading">
+            <div><p class="section-kicker">Vue d’ensemble</p><h2 id="map-title">Les lignes près de chez toi</h2></div>
+            <svg lucideMap aria-hidden="true"></svg>
+          </div>
+          <div class="map-legend">
+            @for (result of results; track result.line; let index = $index) {
+              <span><i [style.background]="routeColors[index]"></i>{{ result.line }}</span>
+            }
+            <span><i class="home-dot"></i>Ton adresse</span>
+          </div>
+          <div #routeMap id="route-map" role="img" [attr.aria-label]="'Carte des lignes ' + results[0].line + ' près de ton adresse'"></div>
+        </section>
+      </section>
+    } @else if (!hasSearched) {
+      <section class="how-it-works" aria-labelledby="how-title">
+        <div class="section-heading">
+          <div><p class="section-kicker">Simple comme bonjour</p><h2 id="how-title">Deux infos, une réponse claire.</h2></div>
+          <p>Le site compare ton adresse avec les tracés de retour de ton école.</p>
+        </div>
+        <div class="feature-row">
+          <article><span>01</span><svg lucideSchool aria-hidden="true"></svg><h3>Ton école</h3><p>Seulement les autobus qui quittent ton école.</p></article>
+          <article><span>02</span><svg lucideMapPin aria-hidden="true"></svg><h3>Ton adresse</h3><p>La distance la plus courte jusqu’au trajet.</p></article>
+          <article><span>03</span><svg lucideBusFront aria-hidden="true"></svg><h3>Ton autobus</h3><p>La ligne, sa place dans la cour et les PDF utiles.</p></article>
+        </div>
+      </section>
+    }
+
+    <section id="documents" class="documents-section" aria-labelledby="documents-title">
+      <div class="section-heading">
+        <div><p class="section-kicker">Bibliothèque 2026–2027</p><h2 id="documents-title">Tous les documents, classés par école.</h2></div>
+        <p>50 tracés gauche-droite et 8 plans de cour à ouvrir directement.</p>
+      </div>
+
+      <div class="school-documents">
+        @for (school of schools; track school.slug; let index = $index) {
+          <details [open]="index === 0">
+            <summary>
+              <span class="school-summary-icon"><svg lucideSchool aria-hidden="true"></svg></span>
+              <span><strong>{{ school.name }}</strong><small>{{ school.routes.length }} {{ school.routes.length === 1 ? 'ligne' : 'lignes' }}</small></span>
+              <svg lucideChevronDown class="summary-chevron" aria-hidden="true"></svg>
+            </summary>
+            <div class="document-list">
+              <a class="court-document" [href]="school.courtPdf" target="_blank" rel="noopener">
+                <svg lucideMap aria-hidden="true"></svg>
+                <span><small>Plan de la cour</small><strong>Voir les emplacements</strong></span>
+                <svg lucideExternalLink aria-hidden="true"></svg>
+              </a>
+              <div class="route-documents">
+                @for (line of school.routes; track line) {
+                  <a [href]="routePdf(line)" target="_blank" rel="noopener" [attr.aria-label]="'Ouvrir le tracé de la ligne ' + line">
+                    <span>{{ line }}</span><svg lucideFileText aria-hidden="true"></svg>
+                  </a>
+                }
+              </div>
+            </div>
+          </details>
+        }
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-brand"><span class="brand-mark" aria-hidden="true"><span class="brand-line"></span><span class="brand-bus"></span></span><span><strong>STL Scolaire</strong><small>Pour les élèves de Laval</small></span></div>
+    <p>Données STL 2026–2027 · Mise à jour août 2026</p>
+  </footer>
+</div>
