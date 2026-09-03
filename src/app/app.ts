@@ -622,7 +622,8 @@ export class App implements OnDestroy {
     const element = this.mapElement?.nativeElement;
     if (!element || !this.results.length) return;
 
-    const L = await import('leaflet');
+    const leafletModule = await import('leaflet');
+    const L = leafletModule.default;
     this.destroyMap();
     this.map = L.map(element, { zoomControl: false, attributionControl: true });
     L.control.zoom({ position: 'bottomright' }).addTo(this.map);
